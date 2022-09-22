@@ -10,7 +10,7 @@ Convert Minecraft datapack to command block chains!
 
 ## How to use
 
-- Run `python3 datapack_converter.py "datapack_path" x y z`
+- Run `python3 commands_converter.py "datapack_path" x y z`
 
 - Positional arguments:
     - **datapack_path:** Path of the Minecraft datapack to convert
