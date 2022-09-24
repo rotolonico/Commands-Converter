@@ -25,6 +25,8 @@ if __name__ == '__main__':
                         help='Overwrite existing datapack named \'converter_datapack\'. False by default')
     parser.add_argument('-d', '-delete-datapack', action='store_true',
                         help='Automatically delete the converted datapack. Do NOT use this if the datapack contains stuff other than functions or you\'ll lose them. False by default')
+    parser.add_argument('-s', '-segment-functions', action='store_true',
+                        help='Creates a new chain after every function call. This removes race conditions problems but decreases code readability and makes chains after a function call run one tick later. See README for more info. False by default.')
 
     args = parser.parse_args()
 
@@ -41,4 +43,4 @@ if __name__ == '__main__':
     chains = get_chains_from_datapack(args.datapack_path)
 
     write_converter_datapack(args.datapack_path, chains, args.x, args.y, args.z, args.ox, args.oy, args.r, args.f,
-                             args.d)
+                             args.d, args.s)

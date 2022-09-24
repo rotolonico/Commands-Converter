@@ -25,6 +25,8 @@ Convert Minecraft datapack to command block chains!
     - **-f, -force:** Overwrite existing datapack named 'converter_datapack'. False by default
     - **-d, -delete-datapack:** Automatically delete the converted datapack. Do NOT use this if the datapack contains
       stuff other than functions or you\'ll lose them. False by default
+    - **-s, -segment-functions:** Creates a new chain after every function call. This removes race conditions problems
+      but decreases code readability and makes chains after a function call run one tick later. False by default.
 
 ## How it works
 
@@ -34,6 +36,8 @@ Convert Minecraft datapack to command block chains!
 - All impulse command block chains have `data merge block X Y Z {auto:0b}` at the end (to reset them for the next
   function call)
 - Function calls are replaced with `data merge block X Y Z {auto:1b}` syntax
+- If -s argument is used, it will also make any commands that come after a function call in a new chain. This is to
+  mitigate the problem of function calls executing one tick later due to command blocks limitations.
 - It will force load the necessary chunks to keep the commands always loaded
 
 ## Why it doesn't work
@@ -44,6 +48,9 @@ from function calls (that are instead executed instantly during the execution of
 This could create timing inconsistencies and lead to unexpected bugs in your map.
 Therefore, this tool, unlike the [commands to datapack one](https://github.com/rotolonico/Datapack-Converter), was made
 only for demonstration purposes and shouldn't be used for real projects.
+The -s argument could be used to mitigate this problem, but it will have the side effect of making command execution
+slower and therefore messing up timing in between separate chains.
 
 ## Looking for the opposite conversion?
+
 Check out the [Datapack-Converter](https://github.com/rotolonico/Datapack-Converter) 

@@ -2,7 +2,8 @@ import os
 import shutil
 
 
-def write_converter_datapack(source_datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_row, force, delete):
+def write_converter_datapack(source_datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_row, force, delete,
+                             segment):
     datapack_path = os.path.join(os.path.dirname(source_datapack_path), "converter_datapack")
 
     print_chains(chains)
@@ -16,7 +17,7 @@ def write_converter_datapack(source_datapack_path, chains, x, y, z, offset_x, of
 
     shutil.copytree(os.path.join("utils", "converter_datapack"), datapack_path)
 
-    place_chains(datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_row)
+    place_chains(datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_row, segment)
 
     if delete:
         shutil.rmtree(source_datapack_path)
@@ -55,7 +56,7 @@ def print_chain(chain):
         print(command)
 
 
-def place_chains(datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_row):
+def place_chains(datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_row, segment):
     chain_positions = {}
     for c in chains:
         n_x = x + (int(len(chain_positions) % chains_per_row)) * offset_x
@@ -77,55 +78,33 @@ def place_chains(datapack_path, chains, x, y, z, offset_x, offset_y, chains_per_
         init_content.append("\n# {}".format(chain["id"]))
 
         chain_start_location = chain_positions[c]
+
+        offset = 0
+
         if len(chain["commands"]) == 0:
-            init_content.append(
-                "setblock {} {} {} red_concrete".format(chain_start_location[0],
-                                                        chain_start_location[1],
-                                                        chain_start_location[2]))
-        else:
-            init_content.append(
-                "setblock {} {} {} {}command_block[facing=south]".format(chain_start_location[0],
-                                                                         chain_start_location[1],
-                                                                         chain_start_location[2],
-                                                                         "repeating_" if chain["repeating"] else ""))
+            place_command(init_content, None, None, None, chain_start_location)
+        elif not chain["repeating"]:
+            command = "data merge block ~ ~ ~ {auto:0b}"
+            place_command(init_content, command, "", chain["active"], chain_start_location)
+            offset += 1
 
-            init_content.append(
-                "data merge block {} {} {} {{\"auto\":{},\"Command\":\"{}\"}}".format(
-                    chain_start_location[0], chain_start_location[1],
-                    chain_start_location[2], "1b" if chain["active"] else "0b",
-                    format_command(chain["commands"][0], chain_positions)))
-
-        for i in range(1, len(chain["commands"]), 1):
+        for i in range(len(chain["commands"])):
             command = format_command(chain["commands"][i], chain_positions)
-            init_content.append(
-                "setblock {} {} {} chain_command_block[facing=south]".format(chain_start_location[0],
-                                                                             chain_start_location[1],
-                                                                             chain_start_location[2] + i))
-            init_content.append(
-                "data merge block {} {} {} {{\"auto\":1b,\"Command\":\"{}\"}}".format(
-                    chain_start_location[0], chain_start_location[1],
-                    chain_start_location[2] + i, command))
+            chain_location = (chain_start_location[0], chain_start_location[1], chain_start_location[2] + i + offset)
 
-        if len(chain["commands"]) != 0 and not chain["repeating"]:
-            init_content.append(
-                "setblock {} {} {} chain_command_block[facing=south]".format(chain_start_location[0],
-                                                                             chain_start_location[1],
-                                                                             chain_start_location[2] + len(
-                                                                                 chain["commands"])))
+            place_command(init_content, command,
+                          "chain_" if offset + i != 0 else ("repeating_" if chain["repeating"] else ""),
+                          True if offset + i != 0 else chain["active"],
+                          chain_location)
 
-            init_content.append(
-                "data merge block {} {} {} {{\"auto\":1b,\"Command\":\"data merge block {} {} {} {{auto:0b}}\"}}".format(
-                    chain_start_location[0], chain_start_location[1],
-                    chain_start_location[2] + len(chain["commands"]), chain_start_location[0], chain_start_location[1],
-                    chain_start_location[2]))
+            if segment and command != chain["commands"][i]:
+                place_command(init_content, "data merge block ~ ~ ~1 {auto:1b}", "chain_", True, (
+                    chain_start_location[0], chain_start_location[1], chain_start_location[2] + i + offset + 1))
+                place_command(init_content, "data merge block ~ ~ ~ {auto:0b}", "", False, (
+                    chain_start_location[0], chain_start_location[1], chain_start_location[2] + i + offset + 2))
+                offset += 2
 
-        init_content.append(
-            "setblock {} {} {} oak_wall_sign[facing=north]".format(chain_start_location[0], chain_start_location[1],
-                                                                   chain_start_location[2] - 1))
-        init_content.append(
-            "data merge block {} {} {} {{\"Text1\":'{{\"text\":\"- - -\"}}',\"Text2\":'{{\"text\":\"{}\"}}',\"Text3\":'{{\"text\":\"{}\"}}',\"Text4\":'{{\"text\":\"- - -\"}}'}}".format(
-                chain_start_location[0], chain_start_location[1],
-                chain_start_location[2] - 1, chain["id"].split(":")[0], chain["id"].split(":")[1]))
+        place_sign(init_content, chain["id"], chain_start_location)
 
         init_content.append("forceload add {} {} {} {}".format(chain_start_location[0], chain_start_location[2],
                                                                chain_start_location[0],
@@ -158,3 +137,31 @@ def format_command(command, chain_positions):
                                                                                      chain_positions[c][2]))
 
     return command.replace('\\', '\\\\').replace('"', '\\"')
+
+
+def place_command(init_content, command, prefix, active, position):
+    if command is None:
+        init_content.append(
+            "setblock {} {} {} red_concrete".format(position[0],
+                                                    position[1],
+                                                    position[2]))
+    else:
+        init_content.append(
+            "setblock {} {} {} {}command_block[facing=south]".format(position[0],
+                                                                     position[1],
+                                                                     position[2], prefix))
+
+        init_content.append(
+            "data merge block {} {} {} {{\"auto\":{},\"Command\":\"{}\"}}".format(
+                position[0], position[1],
+                position[2], "1b" if active else "0b", command))
+
+
+def place_sign(init_content, function_id, command_position):
+    init_content.append(
+        "setblock {} {} {} oak_wall_sign[facing=north]".format(command_position[0], command_position[1],
+                                                               command_position[2] - 1))
+    init_content.append(
+        "data merge block {} {} {} {{\"Text1\":'{{\"text\":\"- - -\"}}',\"Text2\":'{{\"text\":\"{}\"}}',\"Text3\":'{{\"text\":\"{}\"}}',\"Text4\":'{{\"text\":\"- - -\"}}'}}".format(
+            command_position[0], command_position[1],
+            command_position[2] - 1, function_id.split(":")[0], function_id.split(":")[1]))
