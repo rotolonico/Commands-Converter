@@ -34,7 +34,7 @@ if __name__ == '__main__':
     if args.oy == 0:
         print("Argument offset-y can't be 0")
         exit(0)
-    if args.r > 0:
+    if args.r <= 0:
         print("Argument commands-per-row has to be strictly positive")
         exit(0)
 
